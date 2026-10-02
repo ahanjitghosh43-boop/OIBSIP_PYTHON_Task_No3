@@ -1,6 +1,15 @@
+import os
 import requests
+from dotenv import load_dotenv
 
-API_KEY = "96301c007f969964650f8278b6085f7f"
+# Load API key from .env file
+load_dotenv()
+
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+
+if not API_KEY:
+    print("API Key not found!")
+    exit()
 
 city = input("Enter city name: ").strip()
 
@@ -20,7 +29,7 @@ try:
     response = requests.get(url, params=params, timeout=10)
 
     if response.status_code != 200:
-        print("Error:", response.json()["message"])
+        print("Error:", response.json().get("message", "Unknown error"))
         exit()
 
     data = response.json()
@@ -41,7 +50,7 @@ city_name = data["name"]
 country = data["sys"]["country"]
 
 temp_c = data["main"]["temp"]
-temp_f = (temp_c * 9/5) + 32
+temp_f = (temp_c * 9 / 5) + 32
 
 humidity = data["main"]["humidity"]
 condition = data["weather"][0]["description"]
@@ -52,5 +61,5 @@ print(f"City       : {city_name}, {country}")
 print(f"Temperature: {temp_c:.2f} °C")
 print(f"Temperature: {temp_f:.2f} °F")
 print(f"Humidity   : {humidity}%")
-print(f"Condition  : {condition}")
+print(f"Condition  : {condition.title()}")
 print(f"Wind Speed : {wind_speed} m/s")
