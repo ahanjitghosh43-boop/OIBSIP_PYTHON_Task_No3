@@ -1,15 +1,18 @@
-import tkinter as tk
-import requests
-from PIL import Image, ImageTk
-from io import BytesIO
 import os
+from io import BytesIO
+
+import requests
 from dotenv import load_dotenv
+from PIL import Image, ImageTk
+import tkinter as tk
+
 load_dotenv()
+
 # =========================================================
 # SETTINGS
 # =========================================================
-API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 current_unit = "C"
 
 
@@ -397,6 +400,7 @@ def show_forecast():
     canvas.configure(
         yscrollcommand=scrollbar.set
     )
+    bind_canvas_scroll(forecast_window, canvas)
 
     canvas.pack(
         side="left",
@@ -524,9 +528,9 @@ def get_hourly_forecast(city):
 
         data = response.json()
 
-        # Free API provides 3-hour intervals.
-        # First two entries represent approximately 6 hours.
-        return data["list"][:2]
+        # OpenWeather forecast is returned in 3-hour blocks.
+        # Show the first six entries to match the 6-hour window.
+        return data["list"][:6]
 
     except (requests.exceptions.Timeout,
             requests.exceptions.ConnectionError):
@@ -534,6 +538,36 @@ def get_hourly_forecast(city):
 
     except Exception:
         return None
+
+
+def scroll_canvas(canvas, delta):
+    """Scroll a canvas smoothly for mouse wheel and touchpad gestures."""
+
+    if not delta:
+        return
+
+    steps = max(1, int(abs(delta) / 40))
+    direction = -1 if delta > 0 else 1
+    canvas.yview_scroll(direction * steps, "units")
+
+
+def on_canvas_scroll(event, canvas):
+    """Handle wheel and touchpad scrolling for forecast popups."""
+
+    if hasattr(event, "delta") and event.delta != 0:
+        scroll_canvas(canvas, event.delta)
+    elif event.num == 4:
+        scroll_canvas(canvas, -120)
+    elif event.num == 5:
+        scroll_canvas(canvas, 120)
+
+
+def bind_canvas_scroll(window, canvas):
+    """Bind popup scrolling to the window so mouse and trackpad gestures work."""
+
+    window.bind("<MouseWheel>", lambda event: on_canvas_scroll(event, canvas))
+    window.bind("<Button-4>", lambda event: on_canvas_scroll(event, canvas))
+    window.bind("<Button-5>", lambda event: on_canvas_scroll(event, canvas))
 
 
 def show_hourly_forecast():
@@ -560,7 +594,7 @@ def show_hourly_forecast():
     hourly_window = tk.Toplevel(root)
 
     hourly_window.title("Next 6 Hours")
-    hourly_window.geometry("500x500")
+    hourly_window.geometry("500x520")
     hourly_window.configure(bg=BG_COLOR)
 
     tk.Label(
@@ -570,6 +604,47 @@ def show_hourly_forecast():
         bg=BG_COLOR,
         fg=TEXT_COLOR
     ).pack(pady=15)
+
+    canvas = tk.Canvas(
+        hourly_window,
+        bg=BG_COLOR,
+        highlightthickness=0,
+        height=360
+    )
+
+    scrollbar = tk.Scrollbar(
+        hourly_window,
+        orient="vertical",
+        command=canvas.yview
+    )
+
+    scrollable_frame = tk.Frame(
+        canvas,
+        bg=BG_COLOR
+    )
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    bind_canvas_scroll(hourly_window, canvas)
+
+    canvas.pack(
+        side="left",
+        fill="both",
+        expand=True,
+        padx=(20, 0),
+        pady=(0, 20)
+    )
+    scrollbar.pack(
+        side="right",
+        fill="y",
+        padx=(0, 20),
+        pady=(0, 20)
+    )
 
     for item in data:
 
@@ -590,7 +665,7 @@ def show_hourly_forecast():
         # -------------------------
 
         card = tk.Frame(
-            hourly_window,
+            scrollable_frame,
             bg=CARD_COLOR,
             bd=1,
             relief="solid"
@@ -598,7 +673,7 @@ def show_hourly_forecast():
 
         card.pack(
             fill="x",
-            padx=20,
+            padx=10,
             pady=8
         )
 
@@ -923,6 +998,25 @@ result_label = tk.Label(
 )
 
 result_label.pack()
+
+
+# =========================================================
+# FOOTER
+# =========================================================
+
+footer_label = tk.Label(
+    root,
+    text="Developed By Ahanjit Ghosh  © 2026",
+    font=("Segoe UI", 11, "bold"),
+    bg=BG_COLOR,
+    fg="black"
+)
+
+footer_label.place(
+    relx=0.5,
+    rely=0.90,
+    anchor="center"
+)
 
 
 # =========================================================
